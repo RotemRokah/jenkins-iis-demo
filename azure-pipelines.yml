@@ -4,11 +4,15 @@
 # Setup in Azure DevOps:
 #   Pipelines > Environments > create "demo-dev" and "demo-prod"
 #   add the IIS machine to each as a Virtual machine resource (agent installed on it)
+#   the agent service account needs admin rights on that machine, deploy.ps1 manages IIS pools and sites
 #   demo-prod > Approvals and checks > Approvals  (this replaces Jenkins `input`)
 
 trigger:
   branches:
     include: [dev]
+
+# no PR builds, they would run the deploy stages too
+pr: none
 
 pool:
   vmImage: windows-latest
@@ -72,7 +76,7 @@ stages:
                   inputs:
                     filePath: $(Pipeline.Workspace)/drop/scripts/deploy.ps1
                     arguments: >-
-                      -Zip $(Pipeline.Workspace)/drop/demoapp-$(version).zip
+                      -Zip '$(Pipeline.Workspace)/drop/demoapp-$(version).zip'
                       -Site DemoDev -Path C:\sites\dev -Port 8081
                       -ExpectedVersion $(version)
 
@@ -92,6 +96,6 @@ stages:
                   inputs:
                     filePath: $(Pipeline.Workspace)/drop/scripts/deploy.ps1
                     arguments: >-
-                      -Zip $(Pipeline.Workspace)/drop/demoapp-$(version).zip
+                      -Zip '$(Pipeline.Workspace)/drop/demoapp-$(version).zip'
                       -Site DemoProd -Path C:\sites\prod -Port 8082
                       -ExpectedVersion $(version)
