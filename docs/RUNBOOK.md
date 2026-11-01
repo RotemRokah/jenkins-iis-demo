@@ -28,8 +28,9 @@ Then, in this order (winget ids can differ, check with `winget search`):
 winget install Microsoft.DotNet.SDK.8
 winget install Microsoft.DotNet.HostingBundle.8
 winget install Git.Git
-winget install EclipseAdoptium.Temurin.17.JDK
-winget install ngrok.ngrok
+winget install EclipseAdoptium.Temurin.21.JDK
+winget install Ngrok.Ngrok
+ngrok update   # winget's version is too old for free accounts
 ```
 
 Jenkins LTS: Windows installer from jenkins.io, run as a service.
@@ -113,7 +114,10 @@ scrape them with Prometheus, and show the deployed version, request rate and err
 | Deploy: access denied on app pool or `C:\sites` | Jenkins service account is not admin. |
 | `WebAdministration` module not found | IIS management scripts feature missing, or the script ran in `pwsh` instead of Windows PowerShell 5.1. |
 | Webhook delivered but no build | Missing trailing `/github-webhook/`, wrong branch specifier, or hook trigger box not ticked. |
+| `ERR_NGROK_121` agent too old | `ngrok update`, or the Microsoft Store version. |
+| `ERR_NGROK_123` | Verify the email on your ngrok account. |
 | Webhook can't reach Jenkins | ngrok not running, or URL changed since you set it. |
+| Defender flags `ngrok.exe` (`Trojan:Win32/Kepavll!rfn`) | Known false positive on ngrok builds. Install ngrok from the Microsoft Store instead, then `ngrok config add-authtoken`. |
 | Port already in use | Another site on 8080-8082. Change ports in `setup-iis.ps1`, `Jenkinsfile`, README. |
 | `powershell` step blocked by execution policy | `Set-ExecutionPolicy RemoteSigned -Scope LocalMachine` as admin. |
 
