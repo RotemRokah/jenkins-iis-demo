@@ -1,0 +1,97 @@
+# Azure DevOps version of the Jenkinsfile, same flow.
+# Reference translation, not run against a real Azure DevOps org.
+#
+# Setup in Azure DevOps:
+#   Pipelines > Environments > create "demo-dev" and "demo-prod"
+#   add the IIS machine to each as a Virtual machine resource (agent installed on it)
+#   demo-prod > Approvals and checks > Approvals  (this replaces Jenkins `input`)
+
+trigger:
+  branches:
+    include: [dev]
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  buildConfiguration: Release
+  version: 1.0.$(Build.BuildId)
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildTestPublish
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              packageType: sdk
+              version: 8.x
+
+          - script: dotnet restore DemoApp.sln
+            displayName: Restore
+
+          - script: dotnet build DemoApp.sln -c $(buildConfiguration) --no-restore /p:Version=$(version)
+            displayName: Build
+
+          - script: dotnet test DemoApp.sln -c $(buildConfiguration) --no-build
+            displayName: Unit tests
+
+          - script: dotnet publish DemoApp.Web/DemoApp.Web.csproj -c $(buildConfiguration) --no-build -o $(Build.BinariesDirectory)/publish /p:Version=$(version)
+            displayName: Publish
+
+          # one zip + the deploy script, travels through all stages
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: $(Build.BinariesDirectory)/publish
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(Build.ArtifactStagingDirectory)/demoapp-$(version).zip
+
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: scripts
+              Contents: '*.ps1'
+              TargetFolder: $(Build.ArtifactStagingDirectory)/scripts
+
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: drop
+
+  - stage: DeployDev
+    dependsOn: Build
+    jobs:
+      - deployment: Dev
+        environment:
+          name: demo-dev
+          resourceType: VirtualMachine
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: PowerShell@2
+                  displayName: Deploy to IIS (dev)
+                  inputs:
+                    filePath: $(Pipeline.Workspace)/drop/scripts/deploy.ps1
+                    arguments: >-
+                      -Zip $(Pipeline.Workspace)/drop/demoapp-$(version).zip
+                      -Site DemoDev -Path C:\sites\dev -Port 8081
+                      -ExpectedVersion $(version)
+
+  - stage: DeployProd
+    dependsOn: DeployDev
+    jobs:
+      - deployment: Prod
+        environment:
+          name: demo-prod        # approval gate lives on this environment
+          resourceType: VirtualMachine
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: PowerShell@2
+                  displayName: Deploy to IIS (prod)
+                  inputs:
+                    filePath: $(Pipeline.Workspace)/drop/scripts/deploy.ps1
+                    arguments: >-
+                      -Zip $(Pipeline.Workspace)/drop/demoapp-$(version).zip
+                      -Site DemoProd -Path C:\sites\prod -Port 8082
+                      -ExpectedVersion $(version)
