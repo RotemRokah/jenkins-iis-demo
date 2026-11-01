@@ -66,7 +66,6 @@ scripts/setup-iis.ps1        one-time IIS setup (sites, pools, env vars)
 scripts/deploy.ps1           deploy + health check + rollback
 DemoApp.Web/                 the app (/, /health)
 DemoApp.Tests/               xUnit tests
-monitoring/                  optional Prometheus + Grafana
 docs/RUNBOOK.md              setup and demo steps
 ```
 

@@ -99,28 +99,10 @@ Debug deliveries under the webhook's *Recent Deliveries*.
 
 Reset after step 8: set `ForceFail` back to `false` and push.
 
-## 8. Optional: monitoring
+## 8. Next step: monitoring
 
-```powershell
-dotnet add DemoApp.Web package prometheus-net.AspNetCore
-```
-
-In `Program.cs`: add `using Prometheus;`, then `app.UseHttpMetrics();` before the endpoints
-and `app.MapMetrics();` next to them. To show the deployed version in Grafana:
-
-```csharp
-Metrics.CreateGauge("demoapp_build_info", "Deployed version",
-    new GaugeConfiguration { LabelNames = new[] { "version" } })
-    .WithLabels(version).Set(1);
-```
-
-```powershell
-cd monitoring
-docker compose up -d
-```
-
-Grafana at `http://localhost:3000` (admin / admin): add Prometheus data source
-`http://prometheus:9090`, build a small dashboard (version, request rate, errors).
+Not part of this demo. Planned next: expose metrics from the app with prometheus-net,
+scrape them with Prometheus, and show the deployed version, request rate and errors in Grafana.
 
 ## Troubleshooting
 
