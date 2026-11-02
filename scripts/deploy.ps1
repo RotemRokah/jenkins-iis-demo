@@ -12,13 +12,16 @@ param(
 $ErrorActionPreference = 'Stop'
 Import-Module WebAdministration
 
+# C:\sites\dev\ would otherwise put the backup inside the site folder
+$Path = $Path.TrimEnd('\', '/')
 $backup = "$Path.bak"
 
 function Stop-Pool($name) {
     if ((Get-WebAppPoolState $name).Value -ne 'Stopped') { Stop-WebAppPool $name }
-    # wait for it to really stop, otherwise files stay locked
+    # wait for it to really stop, otherwise files stay locked. IIS allows 90s by default
     $i = 0
-    while ((Get-WebAppPoolState $name).Value -ne 'Stopped' -and $i -lt 20) { Start-Sleep 1; $i++ }
+    while ((Get-WebAppPoolState $name).Value -ne 'Stopped' -and $i -lt 90) { Start-Sleep 1; $i++ }
+    if ((Get-WebAppPoolState $name).Value -ne 'Stopped') { throw "App pool $name did not stop within 90 seconds" }
 }
 
 function Start-Pool($name) {
@@ -45,25 +48,39 @@ function Test-Health($port, $expected) {
 
 Write-Host "Deploying $Zip to $Site ($Path)"
 
-Stop-Pool $Site
+# any error from here on goes to the rollback below instead of leaving the site down
+$cleared = $false
+$healthy = $false
+try {
+    Stop-Pool $Site
 
-if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
-Copy-Item $Path $backup -Recurse
+    if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
+    Copy-Item $Path $backup -Recurse
 
-Get-ChildItem $Path -Force | Remove-Item -Recurse -Force
-Expand-Archive -Path $Zip -DestinationPath $Path -Force
+    $cleared = $true
+    Get-ChildItem $Path -Force | Remove-Item -Recurse -Force
+    Expand-Archive -Path $Zip -DestinationPath $Path -Force
 
-Start-Pool $Site
+    Start-Pool $Site
+    $healthy = Test-Health $Port $ExpectedVersion
+} catch {
+    Write-Host "Deploy error: $($_.Exception.Message)"
+}
 
-if (Test-Health $Port $ExpectedVersion) {
+if ($healthy) {
     Write-Host 'Deploy OK'
     exit 0
 }
 
-Write-Host 'Health check failed, rolling back'
-Stop-Pool $Site
-Get-ChildItem $Path -Force | Remove-Item -Recurse -Force
-if (Get-ChildItem $backup -Force) {
+Write-Host 'Deploy failed, rolling back'
+# files only need restoring if the old ones were already removed
+if ($cleared) {
+    Stop-Pool $Site
+    Get-ChildItem $Path -Force | Remove-Item -Recurse -Force
+    if (-not (Get-ChildItem $backup -Force)) {
+        Write-Host 'No previous version to restore (first deploy), site left empty'
+        exit 1
+    }
     Copy-Item "$backup\*" $Path -Recurse -Force
 }
 Start-Pool $Site

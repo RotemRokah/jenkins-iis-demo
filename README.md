@@ -43,7 +43,7 @@ is translated to Azure DevOps in [`azure-pipelines.yml`](azure-pipelines.yml).
 | Approve | Jenkins `input` step with a 30 minute timeout. |
 | Deploy Prod | Same zip, same script, no rebuild. |
 | Verify | `/health` must return the **expected version**, so a silent failed swap can't pass. |
-| Rollback | Health fails → previous files restored, pipeline goes red. |
+| Rollback | Health fails or any deploy step errors → previous files restored, pipeline goes red. On a first deploy there is nothing to restore. |
 
 ## Environments
 
@@ -59,6 +59,7 @@ is identical and only configuration differs.
 ## Repo layout
 
 ```
+DemoApp.sln                  solution (app + tests)
 Jenkinsfile                  pipeline definition
 azure-pipelines.yml          same flow for Azure DevOps
 scripts/bootstrap.ps1        installs prerequisites, then runs setup-iis
@@ -66,7 +67,6 @@ scripts/setup-iis.ps1        one-time IIS setup (sites, pools, env vars)
 scripts/deploy.ps1           deploy + health check + rollback
 DemoApp.Web/                 the app (/, /health)
 DemoApp.Tests/               xUnit tests
-monitoring/                  optional Prometheus + Grafana
 docs/RUNBOOK.md              setup and demo steps
 ```
 
