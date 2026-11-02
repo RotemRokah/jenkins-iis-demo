@@ -100,5 +100,5 @@ Write-Host "`nDone. Next:" -ForegroundColor Green
 Write-Host '  1. open http://localhost:8080 (give Jenkins a minute to start)'
 $pw = 'C:\ProgramData\Jenkins\.jenkins\secrets\initialAdminPassword'
 if (Test-Path $pw) { Write-Host "  2. unlock with: $(Get-Content $pw)" }
-Write-Host '  3. install suggested plugins + GitHub Integration, then follow docs/RUNBOOK.md step 5'
+Write-Host '  3. install suggested plugins, you need the GitHub plugin (included in suggested plugins), then follow docs/RUNBOOK.md step 5'
 Write-Host '  If the app pool or Jenkins misbehave, reboot once. IIS features sometimes ask for it.'

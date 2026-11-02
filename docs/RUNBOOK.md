@@ -34,6 +34,8 @@ ngrok update   # winget's version is too old for free accounts
 ```
 
 Jenkins LTS: Windows installer from jenkins.io, run as a service.
+In the installer, pick the Temurin 21 folder under `C:\Program Files\Eclipse Adoptium\` as Java home.
+An older `java` on PATH (e.g. 1.8) won't run current Jenkins.
 The default LocalSystem account is admin, which is what IIS management needs.
 If you picked another account, make it a local administrator.
 
@@ -43,10 +45,11 @@ Restart the Jenkins service after installing everything, so it sees `dotnet` and
 
 ```powershell
 dotnet test DemoApp.sln
-dotnet run --project DemoApp.Web
+dotnet run --project DemoApp.Web --environment Development
 ```
 
-Open the printed URL, check `/` and `/health`.
+Open the printed URL, check `/` and `/health`. The banner shows `LOCAL`.
+Without `--environment` the app runs as Production and shows the production banner.
 
 ## 3. GitHub
 
@@ -64,7 +67,7 @@ They stay empty until the first pipeline run.
 
 ## 5. Jenkins
 
-1. Open `http://localhost:8080`, install suggested plugins, then **GitHub Integration**.
+1. Open `http://localhost:8080`, install suggested plugins. You need **the GitHub plugin** (included in suggested plugins).
 2. New Item → Pipeline.
 3. Pipeline definition: *Pipeline script from SCM* → Git → your repo URL → branch `*/dev` → script path `Jenkinsfile`.
 4. Tick *GitHub hook trigger for GITScm polling*.
@@ -73,17 +76,20 @@ They stay empty until the first pipeline run.
 
 ## 6. Webhook
 
+A free ngrok account has one static domain (ngrok dashboard → Domains). Use it:
+
 ```
-ngrok http 8080
+ngrok http --url=<your-domain> 8080
 ```
 
 GitHub repo → Settings → Webhooks → Add:
 
-- Payload URL: `https://<ngrok-id>.ngrok-free.app/github-webhook/` (the trailing slash matters)
+- Payload URL: `https://<your-domain>/github-webhook/` (the trailing slash matters)
 - Content type: `application/json`
 - Events: just the push event
 
-The ngrok URL changes on every start, so update the webhook before each demo.
+With the static domain the webhook only needs setting once.
+Without it (plain `ngrok http 8080`) the URL changes on every start, so update the webhook before each demo.
 Debug deliveries under the webhook's *Recent Deliveries*.
 
 ## 7. Demo script (10-15 min)
@@ -94,6 +100,7 @@ Debug deliveries under the webhook's *Recent Deliveries*.
 4. Jenkins starts on its own. Walk through the stages while it runs.
 5. Dev site shows the new text and version. Pipeline waits at *Approve Prod*. Prod still shows the old one.
 6. Click Promote. Prod updates, same version number, same zip.
+   Clicking Abort instead: Prod stays as it was, the build shows as aborted, and the next promote needs a new build (Build Now or another push).
 7. Failure 1, stopped by tests: change the expected status in `EndpointTests.cs` so a test fails. Pipeline stops at Test, nothing deployed.
 8. Failure 2, rollback: set `Health.ForceFail` to `true` in `appsettings.Dev.json`. Tests pass, deploy runs, `/health` returns 503, the script rolls back. Pipeline red, Dev still on the previous version.
 9. Open `azure-pipelines.yml` and show the mapping table from the README.
@@ -118,12 +125,11 @@ scrape them with Prometheus, and show the deployed version, request rate and err
 | `ERR_NGROK_123` | Verify the email on your ngrok account. |
 | Webhook can't reach Jenkins | ngrok not running, or URL changed since you set it. |
 | Defender flags `ngrok.exe` (`Trojan:Win32/Kepavll!rfn`) | Known false positive on ngrok builds. Install ngrok from the Microsoft Store instead, then `ngrok config add-authtoken`. |
-| Port already in use | Another site on 8080-8082. Change ports in `setup-iis.ps1`, `Jenkinsfile`, README. |
-| `powershell` step blocked by execution policy | `Set-ExecutionPolicy RemoteSigned -Scope LocalMachine` as admin. |
+| Port already in use | Another site on 8080-8082. Dev/Prod ports: `setup-iis.ps1`, `Jenkinsfile`, `azure-pipelines.yml`, README, this RUNBOOK. Jenkins port: `--httpPort` in `C:\Program Files\Jenkins\jenkins.xml` (restart the service), plus `ngrok http` and the URLs in this RUNBOOK. |
 
 ## Before the demo
 
 - Run the whole flow 3 times from a clean state.
-- Record a backup video of one clean run.
-- Update the ngrok URL in the webhook.
+- Note both sites' `/health` versions before starting, so the change is easy to show.
+- Start ngrok with your static domain. Without one, update the ngrok URL in the webhook.
 - Jenkins, IIS and ngrok all running, both sites responding.
