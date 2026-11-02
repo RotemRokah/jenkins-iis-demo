@@ -16,7 +16,7 @@ public class EndpointTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var res = await _client.GetAsync("/health");
 
-        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, res.StatusCode);
         var body = await res.Content.ReadFromJsonAsync<HealthDto>();
         Assert.Equal("ok", body!.Status);
     }
